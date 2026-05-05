@@ -1,0 +1,5 @@
+venv_bitirme/
+__pycache__/
+.DS_Store
+node_modules/
+static/models/*.keras

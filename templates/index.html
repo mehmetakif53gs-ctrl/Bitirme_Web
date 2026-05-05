@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dermatoloji Karar Destek Sistemi</title>
+    <!-- Cropper.js: Oran korumalı kırpma için kütüphane -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; background-color: #f0f2f5; margin: 0; padding: 20px; }
+        .card { max-width: 650px; margin: auto; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h2 { color: #1a73e8; }
+        #preview-box { width: 100%; margin: 20px 0; display: none; min-height: 300px; }
+        #image { max-width: 100%; }
+        .btn { background-color: #1a73e8; color: white; padding: 12px 30px; border: none; cursor: pointer; border-radius: 50px; font-size: 16px; font-weight: bold; }
+        .btn:hover { background-color: #1557b0; }
+        #result-area { margin-top: 30px; padding: 20px; border-radius: 15px; display: none; }
+        .result-success { background-color: #e6f4ea; border: 2px solid #34a853; color: #137333; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>Cilt Hastalığı Analiz Portalı</h2>
+        <p>Lütfen analiz edilecek lezyonun fotoğrafını yükleyin.</p>
+        
+        <input type="file" id="upload" accept="image/*" style="margin-bottom: 20px;">
+        
+        <div id="preview-box">
+            <img id="image">
+        </div>
+
+        <button id="predict-btn" class="btn" style="display:none;">Analizi Başlat (384x384)</button>
+        
+        <div id="result-area">
+            <h3 id="label-text"></h3>
+            <p id="score-text"></p>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <script>
+        const upload = document.getElementById('upload');
+        const image = document.getElementById('image');
+        const previewBox = document.getElementById('preview-box');
+        const predictBtn = document.getElementById('predict-btn');
+        const resultArea = document.getElementById('result-area');
+        let cropper;
+
+        upload.onchange = (e) => {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                image.src = event.target.result;
+                previewBox.style.display = 'block';
+                if (cropper) cropper.destroy();
+                // Makale uyumlu 1:1 kare seçim (Unsur 5)
+                cropper = new Cropper(image, {
+                    aspectRatio: 1,
+                    viewMode: 1,
+                    autoCropArea: 1
+                });
+                predictBtn.style.display = 'inline-block';
+            };
+            reader.readAsDataURL(file);
+        };
+
+        predictBtn.onclick = () => {
+            // Tam 384x384 boyutunda kare çıktıyı alıyoruz
+            const canvas = cropper.getCroppedCanvas({ width: 384, height: 384 });
+            
+            canvas.toBlob((blob) => {
+                const formData = new FormData();
+                formData.append('file', blob);
+                
+                resultArea.style.display = 'block';
+                resultArea.className = 'card';
+                document.getElementById('label-text').innerText = "Yapay zeka inceliyor...";
+                document.getElementById('score-text').innerText = "";
+
+                fetch('/predict', { method: 'POST', body: formData })
+                .then(res => res.json())
+                .then(data => {
+                    resultArea.className = 'card result-success';
+                    document.getElementById('label-text').innerText = "Tespit Edilen: " + data.label;
+                    document.getElementById('score-text').innerText = "Doğruluk Oranı: %" + data.score;
+                })
+                .catch(err => {
+                    alert("Bir hata oluştu kanka, backend çalışıyor mu?");
+                });
+            });
+        };
+    </script>
+</body>
+</html>
